@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Community Help Directory</title>
+<style>
+  :root {
+    --navy:#1B2A4A; --gold:#C9A227; --bg:#F7F6F2; --text:#1A1A1A; --gray:#6B6B6B; --line:#E4E1D8;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background:var(--bg); color:var(--text); }
+  header { background:var(--navy); color:#fff; padding:20px 16px 16px; position:sticky; top:0; z-index:5; }
+  header h1 { margin:0 0 4px; font-size:1.15rem; letter-spacing:.02em; }
+  header p { margin:0; font-size:.8rem; color:#cfd6e6; }
+  .controls { display:flex; gap:8px; padding:12px 16px; background:var(--bg); position:sticky; top:64px; z-index:4; flex-wrap:wrap; border-bottom:1px solid var(--line); }
+  select, input { border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:.85rem; background:#fff; color:var(--text); }
+  input { flex:1; min-width:140px; }
+  main { padding:8px 16px 40px; max-width:640px; margin:0 auto; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin:10px 0; box-shadow:0 1px 2px rgba(0,0,0,.03); }
+  .card h3 { margin:0 0 4px; font-size:1rem; }
+  .tag { display:inline-block; font-size:.68rem; font-weight:700; color:var(--navy); background:#EDEFF6; border-radius:999px; padding:2px 8px; margin-bottom:6px; letter-spacing:.02em; }
+  .phone { font-weight:700; font-size:.95rem; }
+  .phone a { color:var(--navy); text-decoration:none; }
+  .addr, .city { font-size:.8rem; color:var(--gray); margin-top:2px; }
+  .empty, .status { text-align:center; color:var(--gray); padding:40px 0; font-size:.9rem; }
+  footer { text-align:center; font-size:.75rem; color:var(--gray); padding:20px; }
+  .emergency { background:#fff5f5; border:1px solid #f3c9c9; color:#8a1f1f; font-size:.8rem; padding:8px 12px; border-radius:8px; margin:10px 16px 0; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Community Help Directory</h1>
+  <p>Free food, shelter &amp; job support &mdash; Toronto, Mississauga, Oakville &amp; Milton</p>
+</header>
+<div class="emergency">In an emergency, call 911</div>
+<div class="controls">
+  <input id="search" type="text" placeholder="Search by name or address...">
+  <select id="cityFilter"><option value="">All cities</option></select>
+  <select id="typeFilter"><option value="">All types</option></select>
+</div>
+<main id="list"><div class="status">Loading directory...</div></main>
+<footer>Generated from the Community Master List &middot; Verify hours before visiting</footer>
+
+<script>
+/* ================================================================
+   THIS PAGE IS LIVE-CONNECTED TO YOUR GOOGLE SHEET.
+
+   SHEET_CSV_URL below points at your "Master List" sheet (tab gid=0)
+   using Google's CSV export endpoint. It works because the sheet's
+   sharing is set to "Anyone with the link can view" -- if you ever
+   tighten that permission, this stops working until it's reopened.
+
+   From now on: edit the Google Sheet -> reload this page -> changes
+   appear. No need to regenerate or re-host this file for data updates.
+
+   Recognized column headers (already matches your sheet, case-insensitive):
+     name    <- "Society / Organization"
+     phone   <- "Phone"
+     address <- "Address"
+     city    <- "Town / City"
+     type    <- "Type"
+
+   If you add a second tab or a new spreadsheet, get its CSV export URL via:
+     File > Share > Publish to web > select the tab > format: CSV > Publish
+   and swap it in below. If SHEET_CSV_URL is left blank, or the fetch fails
+   (e.g. no internet, or sharing got locked down), the page falls back to
+   the directory snapshot embedded below.
+   ================================================================ */
+const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/1zJz27fXrOJkc42V4-zzNfVSeeSMC8vQa/export?format=csv&gid=0"; // your Master List sheet, live
+
+const FALLBACK_DATA = [{"name": "ABL Employment", "phone": "905-635-2940 / 289-298-5093", "address": "27-50 Steeles Ave W, Milton, ON L9T 1Y2", "city": "Milton", "type": "Job Centre"}, {"name": "ABL Employment", "phone": "905-953-8340/(416) 840-4770", "address": "Halton-wide coverage \u2013  call to connect", "city": "Oakville", "type": "Job Centre"}, {"name": "ACCES Employment", "phone": "905-361-2522 / 416-921-1800", "address": "2085 Hurontario St, Suite 210, ON L5A 4G1", "city": "Mississauga", "type": "Job Centre"}, {"name": "ACCES Employment", "phone": "416-921-1800 / 416-443-9008", "address": "489 College St, Suite 100, ON M6G 1A5", "city": "Toronto", "type": "Job Centre"}, {"name": "Adecco", "phone": "416-361-2330 / 416-646-3322", "address": "20 Bay St, Suite 800, ON M5J 2N8", "city": "Toronto", "type": "Job Centre"}, {"name": "Adecco", "phone": "905-842-3791", "address": "111-700 Dorval Dr, ON L6K 3V3", "city": "Oakville", "type": "Job Centre"}, {"name": "Anglican Church of the Incarnation \u2013 Community Pantry", "phone": "905-825-2851", "address": "1240 Old Abbey Lane, ON L6M 3Y4", "city": "Oakville", "type": "Food Shelter"}, {"name": "Bluffs Food Bank", "phone": "647-477-4149", "address": "33 East Rd., Scarborough, ON M1N 1Z9", "city": "Toronto", "type": "Food Shelter"}, {"name": "Bridging the Gap \u2013 Halton Youth Housing", "phone": "877-425-8661 / 905-635-0663", "address": "Mobile outreach \u2013 Mon\u2013Fri 9am\u20134:30pm (no fixed address)", "city": "Oakville", "type": "Home Shelter"}, {"name": "Centre for Skills Development", "phone": "905-333-3499 / 1-888-315-5521", "address": "550 Ontario St S, Suite 208, ON L9T 2M3", "city": "Milton", "type": "Job Centre"}, {"name": "Centre for Skills Development", "phone": "905-333-3499 / 1-888-315-5521", "address": "2225 Erin Mills Pkwy, Suite 1200, ON L5K 1T9", "city": "Mississauga", "type": "Job Centre"}, {"name": "Centre for Skills Development", "phone": "905-333-3499 / 1-888-315-5521", "address": "465 Morden Rd, ON", "city": "Oakville", "type": "Job Centre"}, {"name": "Covenant House (Youth 16\u201324)", "phone": "416-598-4898 / 416-593-4849", "address": "20 Gerrard St E, ON", "city": "Toronto", "type": "Food + Home Shelter"}, {"name": "Daily Bread Food Bank", "phone": "416-203-0050 / 647-951-8274", "address": "191 New Toronto St, ON M8V 2E7", "city": "Toronto", "type": "Food Shelter"}, {"name": "Eden Food for Change", "phone": "905-785-3651", "address": "3185 Unity Dr, Unit 2, ON L5L 4L5 (main) & 3051 Battleford Rd (2nd site)", "city": "Mississauga", "type": "Food Shelter"}, {"name": "Embrave \u2013 Agency to End Violence (women & gender-diverse, 16+)", "phone": "905-403-0864 (crisis) / 905-403-9691 (admin)", "address": "Address kept confidential for safety", "city": "Mississauga", "type": "Home Shelter"}, {"name": "Evangel Hall Mission", "phone": "416-364-7223 / 416-504-3563", "address": "552 Adelaide St W, ON M5V 3W8", "city": "Toronto", "type": "Food + Home Shelter"}, {"name": "Fare Share Food Bank Oakville", "phone": "905-337-2701 / 905-847-3988", "address": "1097 North Service Rd E, Unit 1, ON L6H 1A6", "city": "Oakville", "type": "Food Shelter"}, {"name": "Flemingdon Food Bank", "phone": "416-422-4322", "address": "10 Gateway Blvd, Bsmt, Unit 154, ON M3C 3A1", "city": "Toronto", "type": "Food Shelter"}, {"name": "Food Bank", "phone": "905-270-5589", "address": "4544 Eastgate Pkwy, ON L4W 3W6", "city": "Mississauga", "type": "Food Shelter"}, {"name": "Food for Life", "phone": "905-635-1106", "address": "8560 Tremaine Rd (South Entrance), ON", "city": "Milton", "type": "Food Shelter"}, {"name": "Fort York Food Bank", "phone": "416-203-3011", "address": "380 College St, ON M5T 1S6", "city": "Toronto", "type": "Food Shelter"}, {"name": "Fred Victor Centre", "phone": "416-364-8228 / 416-364-3522", "address": "Main/Housing: 145 Queen St E, ON M5A 1S1 | Women's Drop-In: 67 Adelaide St E", "city": "Toronto", "type": "Food + Home Shelter"}, {"name": "Grace Food Bank", "phone": "905-501-8958", "address": "5865B Coopers Ave, ON L4Z 1R9", "city": "Mississauga", "type": "Food Shelter"}, {"name": "Halton Women's Place", "phone": "905-878-8970 / 905-878-8555", "address": "Address kept confidential for safety", "city": "Milton", "type": "Home Shelter"}, {"name": "Halton Women's Place", "phone": "905-332-7892 / 905-332-1200", "address": "Confidential", "city": "Oakville", "type": "Home Shelter"}, {"name": "Haven on the Queensway", "phone": "416-640-2005 / 416-640-2326", "address": "1533 The Queensway, Etobicoke, ON M8Z 5Y4", "city": "Toronto", "type": "Food Shelter"}, {"name": "HCR Personnel Solutions", "phone": "905-876-5300 / 905-876-4661", "address": "310 Main St E, Suite 106, ON L9T 1N9", "city": "Milton", "type": "Job Centre"}, {"name": "ICNA Relief Canada Food Bank", "phone": "1-844-997-8777 / 905-997-8777", "address": "6120 Montevideo Rd, Unit 4, ON L5N 3W5", "city": "Mississauga", "type": "Food Shelter"}, {"name": "Interim Place Shelter", "phone": "905-403-0864 / 905-403-7963", "address": "Address kept confidential for safety", "city": "Mississauga", "type": "Home Shelter"}, {"name": "Job Skills", "phone": "905-624-3353 / 905-273-3360", "address": "1325 Eglinton Ave E, Unit 213, ON L4W 4L9", "city": "Mississauga", "type": "Job Centre"}, {"name": "Kelly Services", "phone": "416-362-7077 / 416-214-2222", "address": "2 Bloor St E, Suite 2200, ON M4W 1A8", "city": "Toronto", "type": "Job Centre"}, {"name": "Kelly Services", "phone": "416-365-1000", "address": "77 City Centre Dr, Suite 401", "city": "Oakville", "type": "Job Centre"}, {"name": "Kerr Street Mission", "phone": "905-845-7485", "address": "485 Kerr St, Oakville, ON L6K 3C6", "city": "Oakville", "type": "Food + Home Shelter"}, {"name": "Kerr Street Mission \u2013 Neighbour Care Network", "phone": "905-845-7485", "address": "485 Kerr St, Oakville, ON L6K 3C6", "city": "Oakville", "type": "Job Centre"}, {"name": "Manpower", "phone": "416-510-1212 / 416-221-7977", "address": "245 Consumers Rd, Suite 200, ON M2J 1R3", "city": "Toronto", "type": "Job Centre"}, {"name": "MGR Workforce", "phone": "1-888-647-3353 / 905-507-3222", "address": "GTA-wide dispatch (Brampton HQ) \u2013 call for site", "city": "Mississauga", "type": "Job Centre"}, {"name": "MGR Workforce", "phone": "1-888-647-3353 / 647-660-3553", "address": "GTA-wide dispatch \u2013 call for site", "city": "Toronto", "type": "Job Centre"}, {"name": "MGR Workforce", "phone": "1-888-647-3353 / 1-888-796-6471", "address": "GTA-wide dispatch (Brampton HQ) \u2013 call for nearest site", "city": "Oakville", "type": "Job Centre"}, {"name": "Milton Bible Church", "phone": "905-876-3586", "address": "121 Chisholm Dr, ON L9T 4A6", "city": "Milton", "type": "Food Shelter"}, {"name": "Milton Community Resource Centre", "phone": "905-876-1244", "address": "410 Bronte Street South, ON L9T 0H8", "city": "Milton", "type": "Food Shelter"}, {"name": "Milton Halal Food Bank", "phone": "647-470-3499", "address": "50 Steeles Ave E Unit 203, ON L9T 4W9", "city": "Milton", "type": "Food Shelter"}, {"name": "Milton Transitional Housing", "phone": "(905) 825-6000 / 905-699-7433", "address": "420 Main Street E. Suite 406, ON, L9T 5G3", "city": "Milton", "type": "Home Shelter"}, {"name": "Miziwe Biik Aboriginal Employment & Training", "phone": "416-591-2310 / 416-591-2311", "address": "433 Cherry St, ON M5A 0L2", "city": "Toronto", "type": "Job Centre"}, {"name": "Muslim Association of Milton Food Bank", "phone": "905-878-9779", "address": "Halton Learning Centre, 550 Ontario St S, Unit 7, ON L9T 5E4", "city": "Milton", "type": "Food Shelter"}, {"name": "North York Harvest Food Bank", "phone": "416-635-7771 / 416-635-7772", "address": "116 Industry St, ON M6M 4L8", "city": "Toronto", "type": "Food Shelter"}, {"name": "Oak Park Neighbourhood Centre", "phone": "905-257-6029", "address": "2200 Sawgrass Dr (main) & 125 North Service Rd E (Churchill)", "city": "Oakville", "type": "Food Shelter"}, {"name": "Our Place Peel \u2013 Emergency Youth Shelter", "phone": "905-238-1383 / 905-238-0118", "address": "3579 Dixie Road, ON", "city": "Mississauga", "type": "Home Shelter"}, {"name": "Parkdale Community Food Bank", "phone": "416-532-2375 / 416-532-0515", "address": "1499 Queen St W, ON M6R 1A3", "city": "Toronto", "type": "Food Shelter"}, {"name": "Patron Career Staffing", "phone": "905-276-4040 / 905-276-4555", "address": "32 Dundas St E, Unit A, ON L5A 1W2", "city": "Mississauga", "type": "Job Centre"}, {"name": "Peel Family Shelter / Surveyor's Shelter", "phone": "905-450-1996 / 905-453-1300", "address": "2420 Surveyor Rd, ON L5N 4E6", "city": "Mississauga", "type": "Home Shelter"}, {"name": "PWA Essentials Market", "phone": "416-506-1400 / 416-506-8606", "address": "200 Gerrard St E, ON", "city": "Toronto", "type": "Food Shelter"}, {"name": "Randstad Canada", "phone": "905-670-6161 / 905-795-1146", "address": "6325 Dixie Rd, Unit 7, ON L5T 2E5", "city": "Mississauga", "type": "Job Centre"}, {"name": "Randstad Canada", "phone": "416-861-1060 / 416-861-9888", "address": "165 King St W, ON M5H 1N1", "city": "Toronto", "type": "Job Centre"}, {"name": "Randstad Canada", "phone": "905-842-4070", "address": "271 Cornwall Rd, Suite A202, ON L6J 7Z5", "city": "Oakville", "type": "Job Centre"}, {"name": "Region of Halton", "phone": "905-825-6000 / dial 3-1-1", "address": "1151 Bronte Rd, ON L6M", "city": "Milton", "type": "Home Shelter"}, {"name": "Region of Halton \u2013 Housing Help (24/7)", "phone": "905-825-6000 / dial 3-1-1", "address": "Phone & outreach service \u2013 no public walk-in", "city": "Oakville", "type": "Home Shelter"}, {"name": "Salvation Army", "phone": "905-281-1272 (food) / 905-450-1996 (shelter crisis)", "address": "2500 Cawthra Rd, ON L5A 2X3", "city": "Mississauga", "type": "Food + Home Shelter"}, {"name": "Salvation Army", "phone": "905-875-1022 / (570) 742-4231", "address": "820 Nipissing Rd, Unit 4, ON L9T 4Z9", "city": "Milton", "type": "Food Shelter"}, {"name": "Salvation Army", "phone": "905-827-5324 / 905-339-2918", "address": "Food: 2270 Speers Rd | Shelter: 750 Redwood Square", "city": "Oakville", "type": "Food + Home Shelter"}, {"name": "Scott Mission", "phone": "416-923-3916 (food) / 416-923-8872 (shelter)", "address": "Food Bank: 502 Spadina Ave | Shelter: 346 Spadina Ave", "city": "Toronto", "type": "Food + Home Shelter"}, {"name": "Seaton House Programs", "phone": "416-392-5522 / 416-392-5547", "address": "339 George St, ON", "city": "Toronto", "type": "Home Shelter"}, {"name": "Seva Food Bank", "phone": "905-361-7382 / 905-497-0914", "address": "3413 Wolfedale Rd, Unit 10, ON L5C 1V8 (main) & 2832 Slough St.", "city": "Mississauga", "type": "Food Shelter"}, {"name": "Sheridan College \u2013 Trafalgar Campus Student Food Bank", "phone": "905-845-9430", "address": "1430 Trafalgar Rd, Student Centre SC200, ON L6H 2L1", "city": "Oakville", "type": "Food Shelter"}, {"name": "Shifra Homes", "phone": "905-681-9633", "address": "Burlington (confidential \u2013 serves all Halton including Oakville)", "city": "Oakville", "type": "Home Shelter"}, {"name": "Sistering \u2013 A Woman's Place", "phone": "416-926-9762 / 416-926-1946", "address": "962 Bloor St W, ON M6H 1L6", "city": "Toronto", "type": "Home Shelter"}, {"name": "St. Vincent de Paul Society", "phone": "289-681-9164", "address": "1150 Monks Passage, L6M 1M2", "city": "Oakville", "type": "Food Shelter"}, {"name": "Street Haven at the Crossroads", "phone": "416-967-6060 / 1-844-967-6060", "address": "87 Pembroke St, ON M5A 2N9", "city": "Toronto", "type": "Home Shelter"}, {"name": "STRIDE Employment Services", "phone": "905-693-4252", "address": "247 North Service Rd W, Suite 200, ON", "city": "Oakville", "type": "Job Centre"}, {"name": "The Compass Food Bank & Outreach Centre", "phone": "905-274-9309", "address": "310 Lakeshore Rd W, ON L5H 1G8", "city": "Mississauga", "type": "Food Shelter"}, {"name": "The Open Door Food Bank", "phone": "905-875-6136 / 514-939-1970", "address": "3535 Av. du Parc, Montr\u00e9al, QC H2X 2H8, Canada", "city": "Milton", "type": "Food Shelter"}, {"name": "The Stop Community Food Centre", "phone": "416-652-7867", "address": "1884 Davenport Rd, ON M6H 4E1", "city": "Toronto", "type": "Food Shelter"}, {"name": "Toronto Central Intake Line", "phone": "416-338-4766 / 1-877-338-3398", "address": "Phone & referral service \u2014 no public walk-in", "city": "Toronto", "type": "Home Shelter"}, {"name": "YMCA of Greater Toronto", "phone": "416-928-9622 / 416-923-5015", "address": "20 Grosvenor St, ON", "city": "Toronto", "type": "Job Centre"}];
+
+// Minimal CSV parser that handles quoted fields with embedded commas
+function parseCSV(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n' || ch === '\r') {
+        if (ch === '\r' && next === '\n') i++;
+        row.push(field); field = '';
+        if (row.length > 1 || row[0] !== '') rows.push(row);
+        row = [];
+      } else field += ch;
+    }
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  if (!rows.length) return [];
+
+  // Map whatever header text the sheet actually uses onto our standard
+  // field names, so the sheet doesn't need to be renamed.
+  const ALIASES = {
+    name: ['name', 'society / organization', 'society/organization', 'organization', 'society'],
+    phone: ['phone', 'phone number', 'contact'],
+    address: ['address', 'location'],
+    city: ['city', 'town / city', 'town/city', 'town'],
+    type: ['type', 'category']
+  };
+  function normalize(h) {
+    const clean = h.trim().toLowerCase();
+    for (const [field, variants] of Object.entries(ALIASES)) {
+      if (variants.includes(clean)) return field;
+    }
+    return clean;
+  }
+
+  const headers = rows[0].map(normalize);
+  return rows.slice(1).filter(r => r.some(v => v.trim() !== '')).map(r => {
+    const obj = {};
+    headers.forEach((h, idx) => obj[h] = (r[idx] || '').trim());
+    return obj;
+  });
+}
+
+let DATA = FALLBACK_DATA;
+
+const listEl = document.getElementById('list');
+const searchEl = document.getElementById('search');
+const cityEl = document.getElementById('cityFilter');
+const typeEl = document.getElementById('typeFilter');
+
+function uniqueSorted(arr) { return [...new Set(arr)].filter(Boolean).sort(); }
+
+function populateFilters() {
+  cityEl.innerHTML = '<option value="">All cities</option>';
+  typeEl.innerHTML = '<option value="">All types</option>';
+  uniqueSorted(DATA.map(d => d.city)).forEach(c => {
+    const o = document.createElement('option'); o.value = c; o.textContent = c;
+    cityEl.appendChild(o);
+  });
+  uniqueSorted(DATA.map(d => d.type)).forEach(t => {
+    const o = document.createElement('option'); o.value = t; o.textContent = t;
+    typeEl.appendChild(o);
+  });
+}
+
+function render() {
+  const q = searchEl.value.trim().toLowerCase();
+  const city = cityEl.value;
+  const type = typeEl.value;
+  const filtered = DATA.filter(d => {
+    const matchesQ = !q || (d.name || '').toLowerCase().includes(q) || (d.address || '').toLowerCase().includes(q);
+    const matchesCity = !city || d.city === city;
+    const matchesType = !type || d.type === type;
+    return matchesQ && matchesCity && matchesType;
+  });
+  listEl.innerHTML = '';
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="empty">No matches. Try clearing a filter.</div>';
+    return;
+  }
+  filtered.forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const telHref = 'tel:' + (d.phone || '').split('/')[0].replace(/[^0-9+]/g, '');
+    card.innerHTML = `
+      <span class="tag">${d.type || ''}</span>
+      <h3>${d.name || ''}</h3>
+      <div class="phone"><a href="${telHref}">${d.phone || ''}</a></div>
+      <div class="addr">${d.address || ''}</div>
+      <div class="city">${d.city || ''}</div>
+    `;
+    listEl.appendChild(card);
+  });
+}
+
+function init() {
+  populateFilters();
+  render();
+  searchEl.addEventListener('input', render);
+  cityEl.addEventListener('change', render);
+  typeEl.addEventListener('change', render);
+}
+
+if (SHEET_CSV_URL) {
+  fetch(SHEET_CSV_URL)
+    .then(r => { if (!r.ok) throw new Error('Network response was not ok'); return r.text(); })
+    .then(csvText => {
+      const rows = parseCSV(csvText);
+      if (rows.length) DATA = rows;
+      init();
+    })
+    .catch(err => {
+      console.warn('Could not load Google Sheet, using fallback data:', err);
+      init();
+    });
+} else {
+  init();
+}
+</script>
+</body>
+</html>
